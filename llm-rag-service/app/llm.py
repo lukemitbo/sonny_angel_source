@@ -19,22 +19,33 @@ class LLMService:
         if self.pipe is not None:
             return
 
-        # Load model and tokenizer
-        print(f"Loading model {self.model_name} on {self.device}...")
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_name,
-            torch_dtype=torch.float16
-            if self.device == "cuda" else torch.float32,
-            #device_map="auto"
-        )
+        try:
+            # Load model and tokenizer
+            print(f"Loading model {self.model_name} on {self.device}...")
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.model_name,
+                cache_dir="/app/.cache/huggingface/hub",
+                trust_remote_code=False
+            )
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                cache_dir="/app/.cache/huggingface/hub",
+                # device_map can be enabled when GPU is present
+                # device_map="auto"
+            )
 
-        # Create pipeline for easier inference
-        self.pipe = pipeline("text-generation",
-                             model=self.model,
-                             tokenizer=self.tokenizer,
-                             device=self.device)
-        print("Model loaded successfully!")
+            # Create pipeline for easier inference
+            self.pipe = pipeline(
+                "text-generation",
+                model=self.model,
+                tokenizer=self.tokenizer,
+                device=0 if self.device == "cuda" else -1
+            )
+            print("Model loaded successfully!")
+        except Exception as e:
+            print(f"Error loading model: {str(e)}")
+            raise
 
     @classmethod
     def get_instance(cls):
