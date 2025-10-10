@@ -4,10 +4,19 @@ import torch
 
 
 class LLMService:
+    _instance = None
+    
     def __init__(self):
         self.model_name = "mistralai/Mistral-7B-Instruct-v0.3"
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        
+        self.tokenizer = None
+        self.model = None
+        self.pipe = None
+    
+    def _initialize(self):
+        if self.pipe is not None:
+            return
+            
         # Load model and tokenizer
         print(f"Loading model {self.model_name} on {self.device}...")
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
@@ -25,6 +34,12 @@ class LLMService:
             device=self.device
         )
         print("Model loaded successfully!")
+    
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
 
     def generate(
         self,
@@ -34,6 +49,8 @@ class LLMService:
         top_p: float = 0.9,
         **kwargs: Dict[str, Any]
     ) -> str:
+        # Ensure model is initialized
+        self._initialize()
         """
         Generate text based on the input prompt using the Mistral model.
         
@@ -65,4 +82,4 @@ class LLMService:
         return response
 
 # Create a global instance
-llm_service = LLMService()
+llm_service = LLMService.get_instance()

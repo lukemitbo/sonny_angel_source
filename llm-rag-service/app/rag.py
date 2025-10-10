@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List, Tuple, Dict, Any, Optional
 
@@ -107,28 +108,61 @@ class FaissStore:
 class RAG:
     """
     Folder layout:
-      <index_dir>/
-        index.faiss          # FAISS vectors
-        meta.jsonl           # parallel metadata/text, ith line -> ith vector
+      <base_dir>/
+        YYYYMMDD_HHMMSS/    # Timestamped directory for each index
+          index.faiss       # FAISS vectors
+          meta.jsonl        # parallel metadata/text, ith line -> ith vector
     """
-    def __init__(self, index_dir: str, embedder: Optional[STEmbedder] = None):
-        self.index_dir = Path(index_dir)
+
+    def __init__(self, index_dir: str, embedder: Optional[STEmbedder] = None, create_timestamp: bool = True):
+        """Initialize RAG with a directory for indices.
+        
+        Args:
+            index_dir: Base directory for indices
+            embedder: Optional custom embedder
+            create_timestamp: If True, creates a timestamped subdirectory (for building new indices).
+                            If False, uses index_dir directly (for loading existing indices).
+        
+        Directory structure when create_timestamp=True:
+            <index_dir>/YYYYMMDD_HHMMSS/index.faiss
+            <index_dir>/YYYYMMDD_HHMMSS/meta.jsonl
+            
+        Directory structure when create_timestamp=False:
+            <index_dir>/index.faiss
+            <index_dir>/meta.jsonl
+        """
+        if create_timestamp:
+            self.base_dir = Path(index_dir)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.index_dir = self.base_dir / timestamp
+        else:
+            # Use the provided directory directly
+            self.index_dir = Path(index_dir)
+            
         self.index_path = self.index_dir / "index.faiss"
         self.meta_path = self.index_dir / "meta.jsonl"
+        
         self.embedder = embedder or STEmbedder()
+        
+        # Create directory structure
+        self.index_dir.mkdir(parents=True, exist_ok=True)
+        
         self.metastore = MetaStore(self.meta_path)
         self.metastore.load()
-        self.store = FaissStore.load(self.index_path, dim_hint=self.embedder.dim)
+        self.store = FaissStore.load(self.index_path,
+                                   dim_hint=self.embedder.dim)
 
         if self.store.ntotal != len(self.metastore):
             raise RuntimeError(
                 f"Index/metadata mismatch: faiss has {self.store.ntotal} vectors, "
                 f"metadata has {len(self.metastore)} records. "
-                f"Make sure you didn't manually edit files."
-            )
+                f"Make sure you didn't manually edit files.")
 
     # ---------- Building ----------
-    def add_texts(self, texts: List[str], metadatas: Optional[List[Dict[str, Any]]] = None, batch: int = 64) -> None:
+    def add_texts(self,
+                  texts: List[str],
+                  metadatas: Optional[List[Dict[str, Any]]] = None,
+                  batch: int = 64) -> None:
         if metadatas is None:
             metadatas = [{} for _ in texts]
         assert len(texts) == len(metadatas)
@@ -137,11 +171,11 @@ class RAG:
         records_to_add: List[Record] = []
 
         for i in tqdm(range(0, len(texts), batch), desc="Embedding"):
-            chunk = texts[i:i+batch]
+            chunk = texts[i:i + batch]
             embs = self.embedder.embed(chunk)  # already normalized
             vectors_to_add.append(embs)
             for j, t in enumerate(chunk):
-                records_to_add.append(Record(text=t, meta=metadatas[i+j]))
+                records_to_add.append(Record(text=t, meta=metadatas[i + j]))
 
         if vectors_to_add:
             all_vecs = np.vstack(vectors_to_add).astype(np.float32, copy=False)
@@ -155,7 +189,9 @@ class RAG:
         # meta.jsonl is appended on the fly
 
     # ---------- Retrieval ----------
-    def retrieve(self, query: str, k: int = 5) -> List[Tuple[str, Dict[str, Any]]]:
+    def retrieve(self,
+                 query: str,
+                 k: int = 5) -> List[Tuple[str, Dict[str, Any]]]:
         q = self.embedder.embed([query])  # normalized
         distances, indices = self.store.search(q, k)
         idxs = indices[0]
