@@ -223,3 +223,13 @@ def read_texts_from_folder(folder: Path, exts=(".txt", ".md")) -> Tuple[List[str
             texts.append(txt)
             metas.append({"source_path": str(p)})
     return texts, metas
+
+def get_latest_index_dir() -> Optional[Path]:
+    """Find the most recent FAISS index directory."""
+    base_dir = Path(__file__).parent.parent / "artifacts" / "rag"
+    if not base_dir.exists():
+        return None
+
+    # List all timestamped directories and sort by name (timestamps) in descending order
+    index_dirs = sorted([d for d in base_dir.iterdir() if d.is_dir()], reverse=True)
+    return index_dirs[0] if index_dirs else None
