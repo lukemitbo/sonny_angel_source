@@ -2,8 +2,8 @@ FROM python:3.11-slim
 # TODO: Figure out which of these are needed
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    HF_HOME=/app/.cache/huggingface \
-    TRANSFORMERS_CACHE=/app/.cache \
+    HF_HOME=/tmp/hf \
+    TRANSFORMERS_CACHE=/tmp/transformers \
     XDG_CACHE_HOME=/app/.cache \
     HUGGINGFACE_HUB_CACHE=/app/.cache/huggingface/hub \
     HF_HUB_ENABLE_XET=0 \

@@ -24,13 +24,11 @@ class LLMService:
             print(f"Loading model {self.model_name} on {self.device}...")
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_name,
-                cache_dir="/app/.cache/huggingface/hub",
                 trust_remote_code=False
             )
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
                 dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                cache_dir="/app/.cache/huggingface/hub",
                 # device_map can be enabled when GPU is present
                 # device_map="auto"
             )
