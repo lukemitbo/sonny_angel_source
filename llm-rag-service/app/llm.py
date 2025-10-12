@@ -9,7 +9,7 @@ class LLMService:
     _instance = None
 
     def __init__(self):
-        self.model_name = "mistralai/Mistral-7B-Instruct-v0.3"
+        self.model_name = "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct"
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = None
         self.model = None
@@ -24,11 +24,12 @@ class LLMService:
             print(f"Loading model {self.model_name} on {self.device}...")
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_name,
-                trust_remote_code=False
+                trust_remote_code=True
             )
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
                 dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                trust_remote_code=True,
                 # device_map can be enabled when GPU is present
                 # device_map="auto"
             )
@@ -38,7 +39,7 @@ class LLMService:
                 "text-generation",
                 model=self.model,
                 tokenizer=self.tokenizer,
-                device=0 if self.device == "cuda" else -1
+                device=0 if self.device == "cuda" else -1,
             )
             print("Model loaded successfully!")
         except Exception as e:
