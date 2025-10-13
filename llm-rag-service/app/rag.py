@@ -1,11 +1,12 @@
 import json
 import hashlib
+import os
 from dataclasses import dataclass
-import time
 import pathlib
 from pathlib import Path
 from typing import Iterable, List, Tuple, Dict, Any, Optional
 
+import boto3
 import faiss
 import numpy as np
 from tqdm import tqdm
@@ -238,6 +239,28 @@ class RAG:
 
 
 # -------- Utility functions --------
+def ensure_local_index_dir() -> Path:
+    """Download FAISS index and metadata files from S3.
+    
+    Returns:
+        Path to local directory containing the downloaded files.
+    """
+    bucket = os.getenv("S3_ARTIFACTS_BUCKET")
+    prefix = os.getenv("RAG_PREFIX", "rag/")
+    local_dir = Path("/app/artifacts/rag")
+
+    s3 = boto3.client("s3")
+    files = ["index.faiss", "meta.jsonl"]
+
+    for fname in files:
+        local_path = local_dir / fname
+        s3_key = f"{prefix}{fname}"
+        print(f"[bootstrap] downloading s3://{bucket}/{s3_key} → {local_path}")
+        s3.download_file(bucket, s3_key, str(local_path))
+
+    return local_dir
+
+
 def read_texts_from_folder(folder: Path, exts=(".txt", ".md")) -> Tuple[List[str], List[Dict[str, Any]]]:
     """
     Read text files from a folder and return their contents and metadata.
@@ -273,4 +296,5 @@ def get_index_dir() -> Optional[Path]:
         raise FileNotFoundError(f"Base directory {base_dir} does not exist")
     return base_dir
 
+ensure_local_index_dir()
 rag = RAG(get_index_dir())
