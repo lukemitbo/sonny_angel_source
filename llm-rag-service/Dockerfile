@@ -22,6 +22,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Ensure Hugging Face caches are present and writable
 RUN mkdir -p /app/.cache/huggingface/hub && chmod -R 777 /app/.cache
 
+# Ensure artifacts dir exists and is writable
+RUN mkdir -p /app/artifacts/rag && chmod -R 775 /app/artifacts
+
 COPY app/ /app/app
 
 EXPOSE 8080
