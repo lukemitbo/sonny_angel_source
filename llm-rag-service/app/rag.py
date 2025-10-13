@@ -1,6 +1,8 @@
 import json
+import hashlib
 from dataclasses import dataclass
-from datetime import datetime
+import time
+import pathlib
 from pathlib import Path
 from typing import Iterable, List, Tuple, Dict, Any, Optional
 
@@ -70,9 +72,11 @@ class FaissStore:
     """
     Cosine similarity via IndexFlatIP on normalized vectors.
     """
+
     def __init__(self, dim: int):
         self.dim = dim
-        self.index = faiss.IndexFlatIP(dim)  # inner product == cosine when normalized
+        self.index = faiss.IndexFlatIP(
+            dim)  # inner product == cosine when normalized
 
     @property
     def ntotal(self) -> int:
@@ -83,7 +87,8 @@ class FaissStore:
         # vectors must already be L2-normalized
         self.index.add(vectors)
 
-    def search(self, vectors: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarray]:
+    def search(self, vectors: np.ndarray,
+               k: int) -> Tuple[np.ndarray, np.ndarray]:
         assert vectors.dtype == np.float32 and vectors.shape[1] == self.dim
         return self.index.search(vectors, k)
 
@@ -95,13 +100,22 @@ class FaissStore:
     def load(cls, path: Path, dim_hint: Optional[int] = None) -> "FaissStore":
         if not path.exists():
             if dim_hint is None:
-                raise ValueError("Index file not found and dim_hint not provided to create a new one.")
+                raise ValueError(
+                    "Index file not found and dim_hint not provided to create a new one."
+                )
             store = cls(dim_hint)
             return store
         idx = faiss.read_index(str(path))
         store = cls(idx.d)
         store.index = idx
         return store
+
+def sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for b in iter(lambda: f.read(1024*1024), b""):
+            h.update(b)
+    return h.hexdigest()[:12]
 
 
 # -------- High-level RAG wrapper --------
@@ -114,7 +128,10 @@ class RAG:
           meta.jsonl        # parallel metadata/text, ith line -> ith vector
     """
 
-    def __init__(self, index_dir: str, embedder: Optional[STEmbedder] = None, create_timestamp: bool = True):
+    def __init__(self,
+                 index_dir: str,
+                 embedder: Optional[STEmbedder] = None,
+                 create_timestamp: bool = False):
         """Initialize RAG with a directory for indices.
         
         Args:
@@ -133,24 +150,23 @@ class RAG:
         """
         if create_timestamp:
             self.base_dir = Path(index_dir)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.index_dir = self.base_dir / timestamp
+            self.index_dir = self.base_dir
         else:
             # Use the provided directory directly
             self.index_dir = Path(index_dir)
-            
+
         self.index_path = self.index_dir / "index.faiss"
         self.meta_path = self.index_dir / "meta.jsonl"
-        
+
         self.embedder = embedder or STEmbedder()
-        
+
         # Create directory structure
         self.index_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.metastore = MetaStore(self.meta_path)
         self.metastore.load()
         self.store = FaissStore.load(self.index_path,
-                                   dim_hint=self.embedder.dim)
+                                     dim_hint=self.embedder.dim)
 
         if self.store.ntotal != len(self.metastore):
             raise RuntimeError(
@@ -203,6 +219,23 @@ class RAG:
             out.append((rec.text, rec.meta))
         return out
 
+    def status(self):
+        p = pathlib.Path(self.index_path) if self.index_path else None
+        m = pathlib.Path(self.meta_path) if self.meta_path else None
+        return {
+            "loaded": self.store.ntotal > 0,
+            "ntotal": int(self.store.ntotal) if self.store.ntotal else 0,
+            "dim": self.embedder.dim,
+            "embedding_model": str(self.embedder.model),
+            "index_file": str(self.index_path),
+            "index_size_bytes": p.stat().st_size if p and p.exists() else None,
+            "index_sha256_12": sha256(self.index_path) if p and p.exists() else None,
+            "meta_file": str(self.meta_path),
+            "meta_count": len(self.metastore) if self.metastore else 0,
+        }
+
+
+
 
 # -------- Utility functions --------
 def read_texts_from_folder(folder: Path, exts=(".txt", ".md")) -> Tuple[List[str], List[Dict[str, Any]]]:
@@ -224,12 +257,20 @@ def read_texts_from_folder(folder: Path, exts=(".txt", ".md")) -> Tuple[List[str
             metas.append({"source_path": str(p)})
     return texts, metas
 
-def get_latest_index_dir() -> Optional[Path]:
-    """Find the most recent FAISS index directory."""
-    base_dir = Path(__file__).parent.parent / "artifacts" / "rag"
-    if not base_dir.exists():
-        return None
 
-    # List all timestamped directories and sort by name (timestamps) in descending order
-    index_dirs = sorted([d for d in base_dir.iterdir() if d.is_dir()], reverse=True)
-    return index_dirs[0] if index_dirs else None
+def get_index_dir() -> Optional[Path]:
+    """Find the FAISS index directory."""
+    # Try Docker path first, then fall back to local path
+    docker_path = Path("/app/artifacts/rag")
+    if docker_path.exists():
+        return docker_path
+        
+    # Get the project root directory (2 levels up from this file)
+    project_root = Path(__file__).resolve().parent.parent
+    base_dir = project_root / "artifacts" / "rag"
+    
+    if not base_dir.exists():
+        raise FileNotFoundError(f"Base directory {base_dir} does not exist")
+    return base_dir
+
+rag = RAG(get_index_dir())

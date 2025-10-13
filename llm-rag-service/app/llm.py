@@ -2,7 +2,7 @@ from typing import Dict, Any, Tuple
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import torch
 
-from .rag import RAG, get_latest_index_dir
+from .rag import rag, get_index_dir
 
 
 class LLMService:
@@ -23,12 +23,11 @@ class LLMService:
             # Load model and tokenizer
             print(f"Loading model {self.model_name} on {self.device}...")
             self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name,
-                trust_remote_code=True
-            )
+                self.model_name, trust_remote_code=True)
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
-                dtype=torch.float16 if self.device == "cuda" else torch.float32,
+                dtype=torch.float16
+                if self.device == "cuda" else torch.float32,
                 trust_remote_code=True,
                 # device_map can be enabled when GPU is present
                 # device_map="auto"
@@ -73,7 +72,7 @@ class LLMService:
         """
         # Ensure model is initialized
         self._initialize()
-        
+
         # Format prompt according to Mistral's instruction format
         formatted_prompt = f"<s>[INST] {prompt} [/INST]"
 
@@ -89,15 +88,13 @@ class LLMService:
         response = result.split("[/INST]")[-1].strip()
         return response
 
-    def query_with_rag(
-        self,
-        query: str,
-        max_new_tokens: int = 512,
-        temperature: float = 0.7,
-        top_p: float = 0.9,
-        k: int = 3,
-        **kwargs: Dict[str, Any]
-    ) -> Tuple[str, str]:
+    def query_with_rag(self,
+                       query: str,
+                       max_new_tokens: int = 512,
+                       temperature: float = 0.7,
+                       top_p: float = 0.9,
+                       k: int = 3,
+                       **kwargs: Dict[str, Any]) -> Tuple[str, str]:
         """
         Generate a response using RAG (Retrieval Augmented Generation).
         
@@ -113,25 +110,21 @@ class LLMService:
             Tuple of (context used, generated response)
         """
         # Find latest index
-        index_dir = get_latest_index_dir()
+        index_dir = get_index_dir()
         if not index_dir:
             # No index available, fall back to raw generation
-            response = self.generate(
-                query,
-                max_new_tokens=max_new_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                **kwargs
-            )
+            response = self.generate(query,
+                                     max_new_tokens=max_new_tokens,
+                                     temperature=temperature,
+                                     top_p=top_p,
+                                     **kwargs)
             return "", response
-        
+
         # Initialize RAG with latest index
-        rag = RAG(str(index_dir), create_timestamp=False)
-        
         # Retrieve relevant context
         context_results = rag.retrieve(query, k=k)
         context = "\n\n".join(text for text, _ in context_results)
-        
+
         # Build prompt with context
         prompt = f"""Use only the following context to answer the question. If the context doesn't contain relevant information, say so and refuse to answer.
 
@@ -141,16 +134,14 @@ Context:
 Question: {query}
 
 Answer:"""
-        
+
         # Generate response with context
-        response = self.generate(
-            prompt,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            **kwargs
-        )
-        
+        response = self.generate(prompt,
+                                 max_new_tokens=max_new_tokens,
+                                 temperature=temperature,
+                                 top_p=top_p,
+                                 **kwargs)
+
         return context, response
 
 # Create a global instance

@@ -9,4 +9,4 @@ if __name__ == "__main__":
     print("Initializing LLM service...")
     init()
     print("Starting API server...")
-    uvicorn.run("app.api:app", host="0.0.0.0", port=8080)
+    uvicorn.run("app.api:app", host="0.0.0.0", port=8080, reload=True)

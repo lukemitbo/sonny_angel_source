@@ -5,15 +5,23 @@ import uvicorn
 from typing import Optional
 
 from .llm import llm_service
+from .rag import rag
 
 
 app = fastapi.FastAPI(title="Mistral LLM Service")
 
+@app.on_event("startup")
+def _startup():
+    # container-local paths after you download from S3
+    st = rag.status()
+    print(f"[RAG] Loaded index: ntotal={st['ntotal']} dim={st['dim']} model={st['embedding_model']}")
 
 
 @app.get("/healthz")
 def healthz():
-    return {"message": "OK"}
+    st = rag.status()
+    ok = st["loaded"] and st["ntotal"] > 0
+    return {"ok": ok, **st}
 
 
 class QueryRequest(BaseModel):
@@ -41,7 +49,3 @@ def query(request: QueryRequest):
         return QueryResponse(response=final_response)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-if __name__ == "__main__":
-    uvicorn.run("app.api:app", host="0.0.0.0", port=8000, reload=True)
