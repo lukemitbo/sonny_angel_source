@@ -46,6 +46,7 @@ jobs:
 
       - name: Build, tag, and push image
         run: |
+          cd llm-rag-service
           IMAGE_REGISTRY="${{ steps.ecr.outputs.registry }}"
           IMAGE_URI="${IMAGE_REGISTRY}/${{ env.ECR_REPO }}"
           GIT_SHA="$(git rev-parse --short HEAD)"
