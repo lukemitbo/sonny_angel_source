@@ -21,7 +21,7 @@ def _startup():
 def healthz():
     st = rag.status()
     ok = st["loaded"] and st["ntotal"] > 0
-    return {"hello": ":)", "ok": ok, **st}
+    return {"hello???": ":)", "ok": ok, **st}
 
 
 class QueryRequest(BaseModel):
