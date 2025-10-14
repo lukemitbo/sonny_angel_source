@@ -53,7 +53,7 @@ jobs:
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
           echo "GIT_SHA=$GIT_SHA" >> $GITHUB_ENV
 
-          docker build --platform linux/arm64/v8 -t "${IMAGE_URI}:latest" -t "${IMAGE_URI}:${GIT_SHA}" .
+          docker build --platform linux/amd64 -t "${IMAGE_URI}:latest" -t "${IMAGE_URI}:${GIT_SHA}" .
           docker push "${IMAGE_URI}:latest"
           docker push "${IMAGE_URI}:${GIT_SHA}"
 
