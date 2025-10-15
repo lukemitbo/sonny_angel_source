@@ -1,25 +1,34 @@
 import fastapi
 from fastapi import HTTPException
 from pydantic import BaseModel
-import uvicorn
 from typing import Optional
 
-from .llm import llm_service
-from .rag import rag
+from .llm import LLMService
+from .rag import ensure_local_index_dir, get_index_dir, LocalFaissVectorStoreManager, SimpleRetriever
 
 
 app = fastapi.FastAPI(title="Mistral LLM Service")
 
 @app.on_event("startup")
 def _startup():
-    # container-local paths after you download from S3
-    st = rag.status()
-    print(f"[RAG] Loaded index: ntotal={st['ntotal']} dim={st['dim']} model={st['embedding_model']}")
+    # Ensure local index is available (no-op if already present)
+    local_dir = ensure_local_index_dir()
+    index_dir = get_index_dir() or local_dir
+    print(f"[RAG] Loading index from {index_dir}")
+    vector_store = LocalFaissVectorStoreManager(str(index_dir))
+    retriever = SimpleRetriever(vector_store)
+    app.state.vector_store = vector_store
+    app.state.retriever = retriever
+    app.state.llm_service = LLMService(retriever=retriever)
+    st = vector_store.status()
+    print(
+        f"[RAG] Loaded index: ntotal={st['ntotal']} dim={st['dim']} model={st['embedding_model']}"
+    )
 
 
 @app.get("/healthz")
 def healthz():
-    st = rag.status()
+    st = app.state.vector_store.status()
     ok = st["loaded"] and st["ntotal"] > 0
     return {"hello???": ":)", "ok": ok, **st}
 
@@ -38,7 +47,7 @@ class QueryResponse(BaseModel):
 @app.post("/query", response_model=QueryResponse)
 def query(request: QueryRequest):
     try:
-        context, response = llm_service.query_with_rag(
+        context, response = app.state.llm_service.query_with_rag(
             query=request.query,
             max_new_tokens=request.max_new_tokens,
             temperature=request.temperature,

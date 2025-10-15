@@ -7,7 +7,7 @@ Usage: python build_faiss_local.py [--docs_dir DOCS_DIR] [--output_dir OUTPUT_DI
 import argparse
 from pathlib import Path
 
-from app.rag import RAG, read_texts_from_folder
+from app.rag import LocalFaissVectorStoreManager, SimpleRetriever, read_texts_from_folder
 
 def main():
     parser = argparse.ArgumentParser(description="Build FAISS index from local documents")
@@ -32,8 +32,8 @@ def main():
         print(f"Error: Docs directory {docs_dir} does not exist")
         return
 
-    # Initialize RAG with output directory
-    rag = RAG(str(output_dir))
+    # Initialize vector store
+    vector_store = LocalFaissVectorStoreManager(str(output_dir))
 
     # Read documents
     print(f"Reading documents from {docs_dir}...")
@@ -46,12 +46,13 @@ def main():
 
     # Build index
     print("Building FAISS index...")
-    rag.add_texts(texts, metadatas)
+    vector_store.add_texts(texts, metadatas)
     print(f"Index built and saved to {output_dir}")
 
     # Quick test
     print("\nTesting retrieval with a sample query...")
-    results = rag.retrieve("Who has Sonny Angel collaborated with?", k=2)
+    retriever = SimpleRetriever(vector_store)
+    results = retriever.retrieve("Who has Sonny Angel collaborated with?", k=2)
     print(f"Found {len(results)} results")
     for text, meta in results:
         print(f"\nSource: {meta.get('source_path')}")

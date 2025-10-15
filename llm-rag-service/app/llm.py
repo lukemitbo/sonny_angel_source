@@ -1,19 +1,18 @@
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import torch
 
-from .rag import rag, get_index_dir
+from .rag import Retriever
 
 
 class LLMService:
-    _instance = None
-
-    def __init__(self):
+    def __init__(self, retriever: Optional[Retriever] = None):
         self.model_name = "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct"
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = None
         self.model = None
         self.pipe = None
+        self.retriever = retriever
 
     def _initialize(self):
         if self.pipe is not None:
@@ -44,12 +43,6 @@ class LLMService:
         except Exception as e:
             print(f"Error loading model: {str(e)}")
             raise
-
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
 
     def generate(self,
                  prompt: str,
@@ -109,10 +102,8 @@ class LLMService:
         Returns:
             Tuple of (context used, generated response)
         """
-        # Find latest index
-        index_dir = get_index_dir()
-        if not index_dir:
-            # No index available, fall back to raw generation
+        # Retrieve relevant context if retriever available
+        if self.retriever is None:
             response = self.generate(query,
                                      max_new_tokens=max_new_tokens,
                                      temperature=temperature,
@@ -120,9 +111,7 @@ class LLMService:
                                      **kwargs)
             return "", response
 
-        # Initialize RAG with latest index
-        # Retrieve relevant context
-        context_results = rag.retrieve(query, k=k)
+        context_results = self.retriever.retrieve(query, k=k)
         context = "\n\n".join(text for text, _ in context_results)
 
         # Build prompt with context
@@ -143,6 +132,3 @@ Answer:"""
                                  **kwargs)
 
         return context, response
-
-# Create a global instance
-llm_service = LLMService.get_instance()

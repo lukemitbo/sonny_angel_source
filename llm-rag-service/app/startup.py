@@ -1,9 +1,15 @@
 import uvicorn
-from .llm import llm_service
+from .llm import LLMService
+from .rag import ensure_local_index_dir, get_index_dir, LocalFaissVectorStoreManager, SimpleRetriever
 
 def init():
-    # Force initialization of the LLM
-    llm_service._initialize()
+    # Build dependencies to allow warm initialization when running directly
+    local_dir = ensure_local_index_dir()
+    index_dir = get_index_dir() or local_dir
+    vector_store = LocalFaissVectorStoreManager(str(index_dir))
+    retriever = SimpleRetriever(vector_store)
+    service = LLMService(retriever=retriever)
+    service._initialize()
     
 if __name__ == "__main__":
     print("Initializing LLM service...")
