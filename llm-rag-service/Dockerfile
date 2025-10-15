@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN mkdir -p /app/.cache/huggingface/hub && chmod -R 777 /app/.cache
 
 # Ensure artifacts dir exists and is writable
-RUN mkdir -p /app/artifacts/rag && chmod -R 775 /app/artifacts
+RUN mkdir -p /artifacts/rag && chmod -R 775 /artifacts
 
 COPY app/ /app/app
 

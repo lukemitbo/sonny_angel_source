@@ -18,7 +18,7 @@ def ensure_local_index_dir() -> Path:
     """Ensure FAISS index is available locally depending on environment.
 
     Behavior:
-    - In Docker/ECS: download from S3 into /app/artifacts/rag unconditionally.
+    - In Docker/ECS: download from S3 into /artifacts/rag unconditionally.
     - On local dev machine: if project artifacts exist, use them; otherwise,
       optionally download from S3 when RAG_BOOTSTRAP_S3 is truthy.
 
@@ -37,7 +37,7 @@ def ensure_local_index_dir() -> Path:
 
     if is_docker or is_ecs:
         # Running in container (e.g., AWS ECS). Download to container path.
-        local_dir = Path("/app/artifacts/rag")
+        local_dir = Path("/artifacts/rag")
         local_dir.mkdir(parents=True, exist_ok=True)
         if not bucket:
             raise RuntimeError("S3_ARTIFACTS_BUCKET must be set in container environment")
@@ -85,11 +85,11 @@ def read_texts_from_folder(folder: Path, exts=(".txt", ".md")) -> Tuple[List[str
 
 def get_index_dir() -> Optional[Path]:
     """Find the FAISS index directory."""
-    docker_path = Path("/app/artifacts/rag")
+    docker_path = Path("/artifacts/rag")
     if docker_path.exists():
         return docker_path
 
-    project_root = Path(__file__).resolve().parent.parent
+    project_root = Path(__file__).resolve().parent.parent.parent
     base_dir = project_root / "artifacts" / "rag"
     if base_dir.exists():
         return base_dir
