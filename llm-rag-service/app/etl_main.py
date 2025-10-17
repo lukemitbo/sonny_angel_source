@@ -83,7 +83,7 @@ def load_env() -> Dict[str, str]:
         "EMBEDDER_MODEL": os.getenv(
             "EMBEDDER_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
         ).strip(),
-        "DOCS_DIR": os.getenv("DOCS_DIR", "./llm-rag-service/docs").strip(),
+        "DOCS_DIR": os.getenv("DOCS_DIR", "/app/docs").strip(),
         # Optional hot reload
         "RELOAD_URL": os.getenv("RELOAD_URL", "").strip(),
         "RELOAD_TOKEN": os.getenv("RELOAD_TOKEN", "").strip(),
@@ -192,11 +192,13 @@ def main() -> int:
         dry_run = env["DRY_RUN"] == 1
 
         # Local output dir for this run (docker volume mount compatible when DRY_RUN)
-        local_base = Path("/artifacts/rag") if dry_run else Path("./artifacts/rag")
+        local_base = Path("/artifacts/rag") if dry_run else Path(
+            "./artifacts/rag")
         local_out_dir = local_base / run_id
         local_out_dir.mkdir(parents=True, exist_ok=True)
 
         # 1) Fetch docs
+        print(f"[RAG] Fetching documents from {docs_dir}")
         texts, metas = fetch_documents(docs_dir)
         docs_count = len(texts)
         if docs_count == 0:
@@ -213,7 +215,8 @@ def main() -> int:
             index_uri = str(local_out_dir / "index.faiss")
             meta_uri = str(local_out_dir / "meta.jsonl")
         else:
-            index_uri, meta_uri = upload_to_s3(bucket, base_prefix, run_id, local_out_dir)
+            index_uri, meta_uri = upload_to_s3(bucket, base_prefix, run_id,
+                                               local_out_dir)
 
         # 5) Manifest
         manifest = Manifest(
@@ -228,23 +231,21 @@ def main() -> int:
         if dry_run:
             manifest_uri = write_manifest_local(local_out_dir, manifest)
         else:
-            manifest_uri = write_manifest_and_upload(bucket, base_prefix, run_id, manifest)
+            manifest_uri = write_manifest_and_upload(bucket, base_prefix,
+                                                     run_id, manifest)
 
         # 6) Optional reload
         maybe_reload(env.get("RELOAD_URL", ""), env.get("RELOAD_TOKEN", ""))
 
         print(
-            json.dumps(
-                {
-                    "status": "ok",
-                    "run_id": run_id,
-                    "index": index_uri,
-                    "meta": meta_uri,
-                    "manifest": manifest_uri,
-                    "ntotal": store.store.ntotal,
-                }
-            )
-        )
+            json.dumps({
+                "status": "ok",
+                "run_id": run_id,
+                "index": index_uri,
+                "meta": meta_uri,
+                "manifest": manifest_uri,
+                "ntotal": store.store.ntotal,
+            }))
         return 0
     except Exception as e:
         print(json.dumps({"status": "error", "error": str(e)}))
@@ -253,5 +254,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
-

@@ -26,6 +26,7 @@ RUN mkdir -p /app/.cache/huggingface/hub && chmod -R 777 /app/.cache
 RUN mkdir -p /artifacts/rag && chmod -R 775 /artifacts
 
 COPY app/ /app/app
+COPY docs/ /app/docs
 
 EXPOSE 8080
 CMD ["python", "-m", "app.startup"]

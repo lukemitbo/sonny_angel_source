@@ -1,0 +1,9 @@
+{
+  "run_id": "local-test",
+  "created_at_epoch": 1760741916.931908,
+  "docs_count": 1,
+  "chunks_count": 4,
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "index_s3_uri": "/artifacts/rag/local-test/index.faiss",
+  "meta_s3_uri": "/artifacts/rag/local-test/meta.jsonl"
+}
