@@ -6,18 +6,54 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write   # needed for OIDC
+  id-token: write   # OIDC for AWS
   contents: read
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
-  ECR_REPO: ${{ vars.ECR_REPO }}
-  ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
-  ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+  # App (API) service
+  ECR_REPO: ${{ vars.ECR_REPO }}                 # e.g., llm-rag-service
+  ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}           # e.g., llm-rag-cluster
+  ECS_SERVICE: ${{ vars.ECS_SERVICE }}           # e.g., llm-rag-service
+  # ETL image repo (separate ECR repository)
+  ECR_REPO_ETL: ${{ vars.ECR_REPO_ETL }}         # e.g., llm-rag-etl
+  # Build contexts (adjust if your Dockerfile lives elsewhere)
+  SERVICE_BUILD_CONTEXT: llm-rag-service
+  ETL_BUILD_CONTEXT: llm-rag-service
 
 jobs:
-  build-and-deploy:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      service: ${{ steps.filter.outputs.service }}
+      etl: ${{ steps.filter.outputs.etl }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Adjust globs to match your repo layout
+      - name: Filter paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            service:
+              - '${{ env.SERVICE_BUILD_CONTEXT }}/**'
+              - 'requirements.txt'
+              - 'Dockerfile'
+            etl:
+              - 'app/etl_**'
+              - 'scripts/**'
+              - 'requirements.txt'
+              - 'Dockerfile'
+              - '${{ env.ETL_BUILD_CONTEXT }}/app/**'
+              - '${{ env.ETL_BUILD_CONTEXT }}/requirements.txt'
+
+  build-and-deploy-service:
+    name: Build & Deploy Service (ECS)
+    needs: changes
+    if: needs.changes.outputs.service == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -44,9 +80,9 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push image
+      - name: Build, tag, and push service image
         run: |
-          cd llm-rag-service
+          cd "${{ env.SERVICE_BUILD_CONTEXT }}"
           IMAGE_REGISTRY="${{ steps.ecr.outputs.registry }}"
           IMAGE_URI="${IMAGE_REGISTRY}/${{ env.ECR_REPO }}"
           GIT_SHA="$(git rev-parse --short HEAD)"
@@ -63,3 +99,43 @@ jobs:
             --cluster "${{ env.ECS_CLUSTER }}" \
             --service "${{ env.ECS_SERVICE }}" \
             --force-new-deployment
+
+      - name: Wait for service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --services "${{ env.ECS_SERVICE }}"
+
+  build-and-push-etl:
+    name: Build & Push ETL Image (no deploy)
+    needs: changes
+    if: needs.changes.outputs.etl == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubOIDCDeployRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push ETL image
+        run: |
+          cd "${{ env.ETL_BUILD_CONTEXT }}"
+          IMAGE_REGISTRY="${{ steps.ecr.outputs.registry }}"
+          IMAGE_URI="${IMAGE_REGISTRY}/${{ env.ECR_REPO_ETL }}"
+          GIT_SHA="$(git rev-parse --short HEAD)"
+          echo "ETL_IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          echo "GIT_SHA=$GIT_SHA" >> $GITHUB_ENV
+
+          # Same Dockerfile; ETL uses a command override in the ECS Task Definition
+          docker build --platform linux/amd64 -t "${IMAGE_URI}:latest" -t "${IMAGE_URI}:${GIT_SHA}" .
+          docker push "${IMAGE_URI}:latest"
+          docker push "${IMAGE_URI}:${GIT_SHA}"
