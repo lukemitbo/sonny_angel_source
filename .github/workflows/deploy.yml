@@ -32,7 +32,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Adjust globs to match your repo layout
       - name: Filter paths
         id: filter
         uses: dorny/paths-filter@v3
@@ -80,6 +79,10 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      # NEW: enable Buildx so --platform takes effect
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build, tag, and push service image
         run: |
           cd "${{ env.SERVICE_BUILD_CONTEXT }}"
@@ -89,9 +92,7 @@ jobs:
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
           echo "GIT_SHA=$GIT_SHA" >> $GITHUB_ENV
 
-          docker build --platform linux/amd64 -t "${IMAGE_URI}:latest" -t "${IMAGE_URI}:${GIT_SHA}" .
-          docker push "${IMAGE_URI}:latest"
-          docker push "${IMAGE_URI}:${GIT_SHA}"
+          docker buildx build --platform linux/amd64 -t "${IMAGE_URI}:latest" -t "${IMAGE_URI}:${GIT_SHA}" --push .
 
       - name: Force new ECS deployment
         run: |
@@ -126,6 +127,10 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      # NEW: enable Buildx so --platform takes effect
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build, tag, and push ETL image
         run: |
           cd "${{ env.ETL_BUILD_CONTEXT }}"
@@ -135,7 +140,4 @@ jobs:
           echo "ETL_IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
           echo "GIT_SHA=$GIT_SHA" >> $GITHUB_ENV
 
-          # Same Dockerfile; ETL uses a command override in the ECS Task Definition
-          docker build --platform linux/amd64 -t "${IMAGE_URI}:latest" -t "${IMAGE_URI}:${GIT_SHA}" .
-          docker push "${IMAGE_URI}:latest"
-          docker push "${IMAGE_URI}:${GIT_SHA}"
+          docker buildx build --platform linux/amd64 -t "${IMAGE_URI}:latest" -t "${IMAGE_URI}:${GIT_SHA}" --push .
