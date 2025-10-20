@@ -7,7 +7,6 @@ transformers>=4.34.1
 torch>=2.1.0
 sentence-transformers>=2.2.2
 pytest>=7.4.3
-httpx>=0.25.0  # for testing FastAPI
 boto3>=1.28.44  # for AWS S3 interactions
 numpy>=1.24.3
 tqdm>=4.65.0
