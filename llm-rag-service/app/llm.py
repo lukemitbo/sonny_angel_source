@@ -6,6 +6,7 @@ from .rag import Retriever
 
 
 class LLMService:
+
     def __init__(self, retriever: Optional[Retriever] = None):
         self.model_name = "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct"
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -25,21 +26,22 @@ class LLMService:
                 self.model_name, trust_remote_code=True)
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
-                dtype=torch.float16
-                if self.device == "cuda" else torch.float32,
+                torch_dtype=torch.bfloat16,
                 trust_remote_code=True,
+                device_map="auto"
                 # device_map can be enabled when GPU is present
                 # device_map="auto"
             )
-
+            print("Model loaded successfully!")
             # Create pipeline for easier inference
             self.pipe = pipeline(
                 "text-generation",
                 model=self.model,
                 tokenizer=self.tokenizer,
                 device=0 if self.device == "cuda" else -1,
+                #trust_remote_code=True,
             )
-            print("Model loaded successfully!")
+            print("Pipeline loaded successfully!")
         except Exception as e:
             print(f"Error loading model: {str(e)}")
             raise
