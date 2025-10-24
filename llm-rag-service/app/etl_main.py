@@ -11,10 +11,8 @@ import boto3
 import requests
 
 from app.rag.embedding import STEmbedder
-from app.rag.retriever import SimpleRetriever
 from app.rag.vector_store import LocalFaissVectorStoreManager
 from app.rag.utils import read_texts_from_folder
-from app.llm import LLMService
 
 
 # -----------------------------
@@ -238,12 +236,6 @@ def main() -> int:
 
         # 6) Optional reload
         maybe_reload(env.get("RELOAD_URL", ""), env.get("RELOAD_TOKEN", ""))
-
-        # 7) Initialize LLM service
-        simple_retriever = SimpleRetriever(store)
-        llm_service = LLMService(retriever=simple_retriever)
-        llm_service.query_with_rag("Who has Sonny Angel collaborated with?")
-        print("[LLM] LLM service initialized")
 
         print(
             json.dumps({
