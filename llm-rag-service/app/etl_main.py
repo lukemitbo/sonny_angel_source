@@ -208,6 +208,7 @@ def main() -> int:
         chunks, chunk_metas = preprocess_and_chunk(texts, metas)
 
         # 3) Embed + FAISS
+        print(f"[RAG] Building index with model {model_name}")
         store = build_index(local_out_dir, chunks, chunk_metas, model_name)
 
         # 4) Upload artifacts (or keep local in DRY_RUN)

@@ -8,7 +8,7 @@ class STEmbedder:
     def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
         # Lazy import so users without ST for other backends don't break
         from sentence_transformers import SentenceTransformer
-
+        print(f"[STEMBEDDER] Initializing sentence-transformers model {model_name}")
         self.model = SentenceTransformer(model_name, trust_remote_code=True)
         # MiniLM-L6-v2 outputs 384-d vectors
         self.dim = self.model.get_sentence_embedding_dimension()
