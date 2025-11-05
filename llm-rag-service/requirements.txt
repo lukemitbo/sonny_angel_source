@@ -13,3 +13,4 @@ tqdm>=4.65.0
 sentencepiece>=0.1.99  # required for Mistral tokenizer
 protobuf>=4.24.4  # required for tokenizer
 awscli>=1.42.50  # for AWS S3 interactions
+accelerate>=1.11.0
