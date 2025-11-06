@@ -1,9 +1,0 @@
-{
-  "run_id": "ci-test",
-  "created_at_epoch": 1762387814.5868583,
-  "docs_count": 1,
-  "chunks_count": 4,
-  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
-  "index_s3_uri": "/artifacts/rag/ci-test/index.faiss",
-  "meta_s3_uri": "/artifacts/rag/ci-test/meta.jsonl"
-}
