@@ -26,7 +26,7 @@ class LLMService:
                 self.model_name, trust_remote_code=True)
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
-                torch_dtype=torch.bfloat16,
+                dtype=torch.bfloat16,
                 trust_remote_code=True,
                 device_map="auto"
                 # device_map can be enabled when GPU is present
