@@ -9,6 +9,12 @@ from .rag import ensure_local_index_dir, get_index_dir, LocalFaissVectorStoreMan
 
 app = fastapi.FastAPI(title="Mistral LLM Service")
 
+@app.middleware("http")
+async def log_start(request, call_next):
+    if request.url.path == "/query":
+        app.logger.info("Query received")
+    return await call_next(request)
+
 @app.on_event("startup")
 def _startup():
     # Ensure local index is available (no-op if already present)
