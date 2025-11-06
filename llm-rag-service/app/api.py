@@ -12,7 +12,7 @@ app = fastapi.FastAPI(title="Mistral LLM Service")
 @app.middleware("http")
 async def log_start(request, call_next):
     if request.url.path == "/query":
-        app.logger.info("Query received")
+        print(f"Query received: {request.body}")
     return await call_next(request)
 
 @app.on_event("startup")
