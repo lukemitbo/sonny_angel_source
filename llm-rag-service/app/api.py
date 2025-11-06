@@ -26,6 +26,7 @@ def _startup():
     app.state.vector_store = vector_store
     app.state.retriever = retriever
     app.state.llm_service = LLMService(retriever=retriever)
+    app.state.llm_service.initialize()
     st = vector_store.status()
     print(
         f"[RAG] Loaded index: ntotal={st['ntotal']} dim={st['dim']} model={st['embedding_model']}"

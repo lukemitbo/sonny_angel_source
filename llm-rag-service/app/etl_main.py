@@ -84,9 +84,6 @@ def load_env() -> Dict[str, str]:
             "EMBEDDER_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
         ).strip(),
         "DOCS_DIR": os.getenv("DOCS_DIR", "/app/docs").strip(),
-        # Optional hot reload
-        "RELOAD_URL": os.getenv("RELOAD_URL", "").strip(),
-        "RELOAD_TOKEN": os.getenv("RELOAD_TOKEN", "").strip(),
         # Dry run mode
         "DRY_RUN": int(os.getenv("DRY_RUN", "0").strip()),
     }
@@ -169,18 +166,6 @@ def write_manifest_local(local_out_dir: Path, manifest: Manifest) -> str:
     return str(local_path)
 
 
-def maybe_reload(url: str, token: str) -> None:
-    if not url:
-        return
-    headers = {"Authorization": f"Bearer {token}"} if token else {}
-    try:
-        resp = requests.post(url, headers=headers, timeout=10)
-        if resp.status_code >= 400:
-            print(f"[warn] reload request failed: {resp.status_code} {resp.text}")
-    except Exception as e:
-        print(f"[warn] reload request error: {e}")
-
-
 def main() -> int:
     try:
         env = load_env()
@@ -234,9 +219,6 @@ def main() -> int:
         else:
             manifest_uri = write_manifest_and_upload(bucket, base_prefix,
                                                      run_id, manifest)
-
-        # 6) Optional reload
-        maybe_reload(env.get("RELOAD_URL", ""), env.get("RELOAD_TOKEN", ""))
 
         print(
             json.dumps({

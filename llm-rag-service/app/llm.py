@@ -14,9 +14,11 @@ class LLMService:
         self.model = None
         self.pipe = None
         self.retriever = retriever
+        self.initialized = False
 
-    def _initialize(self):
-        if self.pipe is not None:
+    def initialize(self):
+        if self.initialized:
+            print("Model already initialized")
             return
 
         try:
@@ -44,7 +46,7 @@ class LLMService:
         except Exception as e:
             print(f"Error loading model: {str(e)}")
             raise
-
+        self.initialized = True
     def generate(self,
                  prompt: str,
                  max_new_tokens: int = 512,
@@ -65,7 +67,7 @@ class LLMService:
             Generated text as string
         """
         # Ensure model is initialized
-        self._initialize()
+        self.initialize()
 
         # Format prompt according to Mistral's instruction format
         formatted_prompt = f"<s>[INST] {prompt} [/INST]"
