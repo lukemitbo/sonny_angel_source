@@ -8,7 +8,7 @@ from .rag import Retriever
 class LLMService:
 
     def __init__(self, retriever: Optional[Retriever] = None):
-        self.model_name = "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct"
+        self.model_name = "LGAI-EXAONE/EXAONE-3.5-2.4B-Instruct" 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = None
         self.model = None
@@ -38,7 +38,6 @@ class LLMService:
                 "text-generation",
                 model=self.model,
                 tokenizer=self.tokenizer,
-                device=0 if self.device == "cuda" else -1,
                 #trust_remote_code=True,
             )
             print("Pipeline loaded successfully!")
