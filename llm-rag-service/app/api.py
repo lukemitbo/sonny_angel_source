@@ -60,6 +60,8 @@ def query(request: QueryRequest):
             temperature=request.temperature,
             top_p=request.top_p
         )
+        print(f"Context: {context}")
+        print(f"Response: {response}")
         # Include context in response if available
         final_response = response if not context else f"<context>{context}</context>\n\n{response}"
         return QueryResponse(response=final_response)
