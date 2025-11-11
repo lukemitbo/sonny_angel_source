@@ -73,13 +73,14 @@ class LLMService:
         formatted_prompt = f"<s>[INST] {prompt} [/INST]"
 
         # Generate text
+        print(f"Generating text for prompt: {formatted_prompt}")
         result = self.pipe(formatted_prompt,
                            max_new_tokens=max_new_tokens,
                            temperature=temperature,
                            top_p=top_p,
                            do_sample=True,
                            **kwargs)[0]["generated_text"]
-
+        print(f"Generated text: {result}")
         # Remove the instruction prompt from the output
         response = result.split("[/INST]")[-1].strip()
         return response
