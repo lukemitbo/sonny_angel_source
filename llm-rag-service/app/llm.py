@@ -106,15 +106,18 @@ class LLMService:
             Tuple of (context used, generated response)
         """
         # Retrieve relevant context if retriever available
+
         if self.retriever is None:
+            print("No retriever available, generating response directly")
             response = self.generate(query,
                                      max_new_tokens=max_new_tokens,
                                      temperature=temperature,
                                      top_p=top_p,
                                      **kwargs)
             return "", response
-
+        print(f"Retrieving context for query: {query}")
         context_results = self.retriever.retrieve(query, k=k)
+        print(f"Context results: {context_results[:200]}...")
         context = "\n\n".join(text for text, _ in context_results)
 
         # Build prompt with context
