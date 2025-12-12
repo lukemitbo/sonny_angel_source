@@ -1,10 +1,12 @@
 import hashlib
 import os
+import time
 from pathlib import Path
 from typing import Tuple, List, Dict, Any, Optional
 
 import boto3
-
+from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
 
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
@@ -41,12 +43,33 @@ def ensure_local_index_dir() -> Path:
         local_dir.mkdir(parents=True, exist_ok=True)
         if not bucket:
             raise RuntimeError("S3_ARTIFACTS_BUCKET must be set in container environment")
-        s3 = boto3.client("s3")
+        if all((local_dir / f).exists() for f in files):
+            print("[bootstrap] artifacts already present; skipping download")
+            return local_dir
+        s3 = boto3.client(
+            "s3",
+            config=Config(
+                connect_timeout=5,
+                read_timeout=30,
+                retries={"max_attempts": 5, "mode": "standard"},
+            ),
+        )
         for fname in files:
             local_path = local_dir / fname
             s3_key = f"{prefix}{fname}"
-            print(f"[bootstrap] downloading s3://{bucket}/{s3_key} → {local_path}")
-            s3.download_file(bucket, s3_key, str(local_path))
+
+            t0 = time.time()
+            try:
+                print("[bootstrap] verifying S3 access with head_object...")
+                s3.head_object(Bucket=bucket, Key=s3_key)
+                print("[bootstrap] head_object ok")
+                print(f"[bootstrap] downloading s3://{bucket}/{s3_key} → {local_path}")
+                s3.download_file(bucket, s3_key, str(local_path))
+            except (ClientError, BotoCoreError) as e:
+                print(f"[bootstrap][ERROR] download failed for {s3_key}: {e}")
+                raise
+            finally:
+                print(f"[bootstrap] download step finished in {time.time() - t0:.2f}s for {s3_key}")
         return local_dir
 
     # Local development: prefer repo artifacts if present
@@ -61,10 +84,21 @@ def ensure_local_index_dir() -> Path:
 
     # Optionally pull from S3 when configured
     if bucket and (force_s3 or not have_local_files):
-        s3 = boto3.client("s3")
+        s3 = boto3.client(
+            "s3",
+            config=Config(
+                connect_timeout=5,
+                read_timeout=30,
+                retries={"max_attempts": 5, "mode": "standard"},
+            ),
+        )
+
         for fname in files:
             local_path = local_dir / fname
             s3_key = f"{prefix}{fname}"
+            print("[bootstrap] verifying S3 access with head_object...")
+            s3.head_object(Bucket=bucket, Key=s3_key)
+            print("[bootstrap] head_object ok")
             print(f"[bootstrap] downloading s3://{bucket}/{s3_key} → {local_path}")
             s3.download_file(bucket, s3_key, str(local_path))
         return local_dir
